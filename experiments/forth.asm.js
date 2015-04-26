@@ -1,9 +1,14 @@
+var asm = require('asm.js');
 
 function forth(stdlib, foreign, heap) {
   "use asm";
 
   // Our heap
-  var HU32 = new stdlib.Uint32Array(heap);
+  var HU32 = new stdlib.Int32Array(heap);
+
+  // globals
+  var log = foreign.consoleDotLog;
+  var display = foreign.Display;
 
   // Registers
   var eax = 0;
@@ -16,35 +21,27 @@ function forth(stdlib, foreign, heap) {
   var esp = 0;
   var reg = 0;
 
-  function Display() {
-    currStack = new Uint32Array( heap, esp * 4, HU32.byteLength / 4 - esp );
-    viewStack = [];
-    for (i=0; i<currStack.length; i++) {
-      viewStack.push( currStack[i] );
-    }
-    console.log( "NEXT:", ftable[eax].name, "ESP:", esp,
-      "STACK:", viewStack );
-  }
-
   function LODSL() {
-    eax = HU32[esi];    // read memory into accumulator
-    esi = esi + 1;      // increment ESI pointer
+    eax = HU32[(esi<<2)>>2]>>>0;    // read memory into accumulator
+    esi = (esi + 1)>>>0;            // increment ESI pointer
   };
 
   function NEXT() {
     LODSL();            // move onto our next instruction in the heap
-    Display();
+    display(esi|0, eax|0, esp|0);
     ftable[eax]();      // execute the instruction pointed at in the heap
   };
 
   // Push our register passed onto the return stack.
   function PUSHRSP(reg) {
+    reg = reg|0
     ebp = ebp - 1;
     HU32[ebp] = reg;
   };
 
   // Pop our register from the return stack.
   function POPRSP(reg) {
+    reg = reg|0
     reg = HU32[ebp];
     ebp = ebp + 1;
   };
@@ -62,14 +59,14 @@ function forth(stdlib, foreign, heap) {
   function END() {};
 
   // Forth words
-
   function POP() {
     reg = HU32[esp];
     esp = esp + 1;
-    return( reg );
+    return( reg|0 );
   };
 
   function PUSH(reg) {
+    reg = reg|0
     esp = esp - 1;
     HU32[esp] = reg;
   };
@@ -201,49 +198,61 @@ function forth(stdlib, foreign, heap) {
     NEXT();
   };
 
-  var ftable = [ END, POP, PUSH, DROP, SWAP, DUP, OVER, ROT, MINROT, TWODROP,
-           TWOSWAP, QDUP, INCR, DECR, INCR4, DECR4, ADD, SUB, MUL,
-           DIV ];
+  function NIL(){
+  }
 
   function execute(progAddr, endStackAddr) {
+    progAddr = progAddr|0;
+    endStackAddr = endStackAddr|0;
     esi = progAddr;
     esp = endStackAddr;
     NEXT();
   }
 
-  return( execute );
+  // function tables
+  var calltable = [ POP ];
+  var rettable = [ PUSH ];
+  var ftable = [ END, DROP, SWAP, DUP, OVER, ROT, MINROT, TWODROP,
+           TWOSWAP, QDUP, INCR, DECR, INCR4, DECR4, ADD, SUB, MUL,
+           DIV, NIL, NIL, NIL, NIL, NIL, NIL, NIL, NIL, NIL, NIL, NIL, NIL,
+           NIL, NIL];
 
+  // exports declaration
+  return { execute: execute };
 };
+
+var words = [ "END", "DROP", "SWAP", "DUP", "OVER", "ROT",
+        "-ROT", "2DROP", "2SWAP", "?DUP", "INCR", "DECR", "INCR4",
+        "DECR4", "+", "-", "*", "/" ];
 
 function compile(input) {
   var tokenArray = [];
   var currIndex = 0;
-  var defs = [ "END", "POP", "PUSH", "DROP", "SWAP", "DUP", "OVER", "ROT",
-        "-ROT", "2DROP", "2SWAP", "?DUP", "INCR", "DECR", "INCR4",
-        "DECR4", "+", "-", "*", "/" ];
-  tokens = input.split(/\s/);
+  var tokens = input.split(/\s/);
   while (tokens.length) {
-    token = tokens.shift();
-    if ( defs.indexOf( token ) ) {
-      tokenArray[currIndex] = defs.indexOf( token );
+    var token = tokens.shift();
+    if ( words.indexOf( token ) ) {
+      console.log( token );
+      tokenArray[currIndex] = words.indexOf( token );
       currIndex = currIndex + 1;
     }
   }
 
   var compiledTokens = ArrayBuffer(currIndex * 4);
-  var compiledAligned32 = Uint32Array(compiledTokens);
+  var compiledAligned = Uint32Array(compiledTokens);
   for (i in tokenArray) {
-    compiledAligned32[i] = tokenArray[i];
+    console.log(i, tokenArray[i]);
+    compiledAligned[i] = tokenArray[i];
   };
   return( compiledTokens );
 }
 
+var x = asm.validate( forth );
 // Test functions
 var ForthHeap = new ArrayBuffer(128);
 var ForthHeap32 = new Uint32Array(ForthHeap);
-executeForth = forth(global, undefined, ForthHeap);
 
-// Set our initial stack
+// Set our initial stack to [3, 2, 1]
 ForthHeap32[31] = 1;
 ForthHeap32[30] = 2;
 ForthHeap32[29] = 3;
@@ -257,7 +266,26 @@ for (i in compiled32) {
   ForthHeap32[i] = compiled32[i];
 };
 
-instructionPointer = 0;
-endOfStackPointer = 29;
+var instructionPointer = 0;
+var endOfStackPointer = 29;
 
-executeForth(instructionPointer, endOfStackPointer);
+function createDisplay(heap) {
+  return(
+    function Display(esi, eax, esp) {
+      var viewStack = [];
+      var stackArray = heap.slice(esp * 4, heap.byteLength);
+      var currStack = new Int32Array(stackArray);
+      for (i=0; i<currStack.length; i++) {
+        viewStack.push( currStack[i] );
+      };
+      console.log( "ESI:", esi, "NEXT:", words[eax], "ESP:", esp, 
+        "STACK:", viewStack );
+    }
+    )};
+
+// Instantiate our ASM.JS Forth interpreter with the given heap.
+var forthInterpreter = forth(global, { consoleDotLog: console.log,
+                                       Display: createDisplay( ForthHeap ) },
+                                       ForthHeap);
+// Start execution with the instruction pointer and the end of stack pointer.
+forthInterpreter.execute(instructionPointer, endOfStackPointer);
