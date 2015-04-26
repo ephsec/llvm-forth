@@ -1,4 +1,9 @@
-var asm = require('asm.js');
+if ( typeof global == 'undefined' ) {
+  var asm = require('asm.js');
+  var context = window;
+} else {
+  var context = global;
+}
 
 function forth(stdlib, foreign, heap) {
   "use asm";
@@ -247,7 +252,10 @@ function compile(input) {
   return( compiledTokens );
 }
 
-var x = asm.validate( forth );
+if ( typeof asm !== 'undefined' ) {
+  var x = asm.validate( forth );
+}
+
 // Test functions
 var ForthHeap = new ArrayBuffer(128);
 var ForthHeap32 = new Uint32Array(ForthHeap);
@@ -284,7 +292,7 @@ function createDisplay(heap) {
     )};
 
 // Instantiate our ASM.JS Forth interpreter with the given heap.
-var forthInterpreter = forth(global, { consoleDotLog: console.log,
+var forthInterpreter = forth(context, { consoleDotLog: console.log,
                                        Display: createDisplay( ForthHeap ) },
                                        ForthHeap);
 // Start execution with the instruction pointer and the end of stack pointer.
