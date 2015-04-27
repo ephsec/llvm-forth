@@ -1,8 +1,8 @@
-if ( typeof global == 'undefined' ) {
+if ( typeof global !== 'undefined' ) {
   var asm = require('asm.js');
-  var context = window;
-} else {
   var context = global;
+} else {
+  var context = window;
 }
 
 function forth(stdlib, foreign, heap) {
@@ -29,34 +29,39 @@ function forth(stdlib, foreign, heap) {
   function LODSL() {
     eax = HU32[(esi<<2)>>2]>>>0;    // read memory into accumulator
     esi = (esi + 1)>>>0;            // increment ESI pointer
+    return;
   };
 
   function NEXT() {
     LODSL();            // move onto our next instruction in the heap
     display(esi|0, eax|0, esp|0);
-    ftable[eax]();      // execute the instruction pointed at in the heap
+    ftable[(eax|0)]();      // execute the instruction pointed at in the heap
+    return;
   };
 
   // Push our register passed onto the return stack.
   function PUSHRSP(reg) {
     reg = reg|0
-    ebp = ebp - 1;
-    HU32[ebp] = reg;
+    ebp = ebp|0 - 1;
+    HU32[(ebp<<2)>>2] = reg;
+    return;
   };
 
   // Pop our register from the return stack.
   function POPRSP(reg) {
     reg = reg|0
-    reg = HU32[ebp];
-    ebp = ebp + 1;
+    reg = HU32[(ebp<<2)>>2]>>>0;
+    ebp = ebp|0 + 1;
+    return;
   };
 
   function DOCOL() {
-    PUSHRSP(esi);     // push our current ESI onto the return stack
-    eax = eax + 4;    // eax points to our codeword, so we skip it and
+    PUSHRSP(esi|0);     // push our current ESI onto the return stack
+    eax = eax|0 + 4;    // eax points to our codeword, so we skip it and
     esi = eax;        // set esi to +32 bytes -- this means our Forth
                       // words can be up to 32 bytes long.
     NEXT();           // move onto the next codeword
+    return;
   };
 
   // END is simply a stub function that doesn't call NEXT(), therby
@@ -65,142 +70,161 @@ function forth(stdlib, foreign, heap) {
 
   // Forth words
   function POP() {
-    reg = HU32[esp];
-    esp = esp + 1;
+    reg = HU32[(esp<<2)>>2]>>>0;
+    esp = (esp|0) + 1;
     return( reg|0 );
   };
 
   function PUSH(reg) {
     reg = reg|0
-    esp = esp - 1;
-    HU32[esp] = reg;
+    esp = (esp|0) - 1;
+    HU32[(esp<<2)>>2] = reg|0;
+    return;
   };
 
   function DROP() {
-    eax = POP();
+    eax = POP()|0;
     NEXT();
+    return;
   };
 
   function SWAP() {
-    eax = POP();
-    ebx = POP();
-    PUSH(eax);
-    PUSH(ebx);
+    eax = POP()|0;
+    ebx = POP()|0;
+    PUSH(eax|0);
+    PUSH(ebx|0);
     NEXT();
+    return;
   };
 
   function DUP() {
-    eax = HU32[esp];
-    PUSH(eax);
+    eax = HU32[(esp<<2)>>2]|0;
+    PUSH(eax|0);
     NEXT();
+    return;
   };
 
   function OVER() {
-    eax = HU32[esp+1];
-    PUSH(eax);
+    eax = HU32[(((esp|0)+1)<<2)>>2]|0;
+    PUSH(eax|0);
     NEXT();
+    return;
   };
 
   function ROT() {
-    eax = POP();
-    ebx = POP();
-    ecx = POP();
-    PUSH(eax);
-    PUSH(ebx);
-    PUSH(ecx);
+    eax = POP()|0;
+    ebx = POP()|0;
+    ecx = POP()|0;
+    PUSH(eax|0);
+    PUSH(ebx|0);
+    PUSH(ecx|0);
     NEXT();
+    return;
   };
 
   function MINROT() {
-    eax = POP();
-    ebx = POP();
-    ecx = POP();
-    PUSH(eax);
-    PUSH(ecx);
-    PUSH(ebx);
+    eax = POP()|0;
+    ebx = POP()|0;
+    ecx = POP()|0;
+    PUSH(eax|0);
+    PUSH(ecx|0);
+    PUSH(ebx|0);
     NEXT();
+    return;
   };
 
   function TWODROP() {
-    eax = POP();
-    eax = POP();
+    eax = POP()|0;
+    eax = POP()|0;
     NEXT();
+    return;
   };
 
   function TWODUP() {
-    eax = HU32[esp];
-    ebx = HU32[esp+1];
-    PUSH(ebx);
-    PUSH(eax);
+    eax = HU32[(esp<<2)>>2]|0;
+    ebx = HU32[(((esp|0)+1)<<2)>>2]|0;
+    PUSH(ebx|0);
+    PUSH(eax|0);
     NEXT();
+    return;
   };
 
   function TWOSWAP() {
-    eax = POP();
-    ebx = POP();
-    ecx = POP();
-    edx = POP();
-    PUSH(ebx);
-    PUSH(eax);
-    PUSH(edx);
-    PUSH(ecx);
+    eax = POP()|0;
+    ebx = POP()|0;
+    ecx = POP()|0;
+    edx = POP()|0;
+    PUSH(ebx|0);
+    PUSH(eax|0);
+    PUSH(edx|0);
+    PUSH(ecx|0);
     NEXT();
+    return;
   };
 
   function QDUP() {
-    eax = HU32[esp];
-    if ( eax != 0 ) {
-      PUSH(eax);
+    eax = HU32[(esp<<2)>>2]|0;
+    if ( (eax|0) != 0 ) {
+      PUSH(eax|0);
     };
     NEXT();
+    return;
   };
 
   function INCR() {
-    HU32[esp] = HU32[esp] + 1;
+    HU32[(esp<<2)>>2] = HU32[(esp<<2)>>2]|0 + 1;
     NEXT();
+    return;
   };
 
   function DECR() {
-    HU32[esp] = HU32[esp] - 1;
+    HU32[(esp<<2)>>2] = HU32[(esp<<2)>>2]|0 - 1;
     NEXT();
+    return;
   };
 
   function INCR4() {
-    HU32[esp] = HU32[esp] + 4;
+    HU32[(esp<<2)>>2] = HU32[(esp<<2)>>2]|0 + 4;
     NEXT();
+    return;
   };
 
   function DECR4() {
-    HU32[esp] = HU32[esp] - 4;
+    HU32[(esp<<2)>>2] = HU32[(esp<<2)>>2]|0 - 4;
     NEXT();
+    return;
   };
 
   function ADD() {
-    eax = POP();
-    HU32[esp] = HU32[esp] + eax;
+    eax = POP()|0;
+    HU32[(esp<<2)>>2] = (HU32[(esp<<2)>>2]|0) + eax|0;
     NEXT();
+    return;
   };
 
   function SUB() {
-    eax = POP();
-    HU32[esp] = HU32[esp] - eax;
+    eax = POP()|0;
+    HU32[(esp<<2)>>2] = (HU32[(esp<<2)>>2]|0) - eax|0;
     NEXT();
+    return;
   };
 
   function MUL() {
-    eax = POP();
-    ebx = POP();
-    eax = ebx * eax;
-    PUSH(eax);
+    eax = POP()|0;
+    ebx = POP()|0;
+    eax = (ebx|0) * (eax|0);
+    PUSH(eax|0);
     NEXT();
+    return;
   };
 
   function DIV() {
-    ebx = POP();
-    eax = POP();
-    eax = ebx / eax;
-    PUSH(eax);
+    ebx = POP()|0;
+    eax = POP()|0;
+    eax = ((ebx>>>0) / (eax>>>0))|0;
+    PUSH(eax|0);
     NEXT();
+    return;
   };
 
   function NIL(){
@@ -212,6 +236,7 @@ function forth(stdlib, foreign, heap) {
     esi = progAddr;
     esp = endStackAddr;
     NEXT();
+    return;
   }
 
   // function tables
